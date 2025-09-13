@@ -24,14 +24,8 @@ jobs:
         run: |
           mkdir -p public
           test -d mods_payload || { echo "mods_payload/ not found"; exit 1; }
-
-          # Crée le ZIP au bon endroit (public)
           (cd mods_payload && zip -r ../public/mods_payload.zip .)
-
-          # Manifest SHA1 (optionnel, utile pour diagnostiquer)
           (cd mods_payload && sha1sum *.jar 2>/dev/null || true) > public/mods_manifest.sha1
-
-          # Petite page d'index (optionnelle)
           cat > public/index.html << 'HTML'
           <!doctype html>
           <meta charset="utf-8">
