@@ -1,17 +1,21 @@
-name: Publish MODIUM payload to GitHub Pages
+name: Publish Mods Payload to GitHub Pages
 
 on:
   push:
     branches: [ main ]
     paths:
-      - "mods_payload/**"
-      - ".github/workflows/publish-pages.yml"
+      - 'mods_payload.zip'
+      - '.github/workflows/publish-pages.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
   pages: write
   id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -20,32 +24,50 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build public site with payload
+      - name: Prepare site (copy zip + checksums + index)
         run: |
+          set -eu
           mkdir -p public
-          test -d mods_payload || { echo "mods_payload/ not found"; exit 1; }
-          (cd mods_payload && zip -r ../public/mods_payload.zip .)
-          (cd mods_payload && sha1sum *.jar 2>/dev/null || true) > public/mods_manifest.sha1
-          cat > public/index.html << 'HTML'
+          cp mods_payload.zip public/
+          sha1sum public/mods_payload.zip | awk '{print $1}' > public/mods_payload.zip.sha1
+          sha256sum public/mods_payload.zip | awk '{print $1}' > public/mods_payload.zip.sha256
+          cat > public/index.html <<'HTML'
           <!doctype html>
+          <html lang="fr">
           <meta charset="utf-8">
-          <title>MODIUM Payload</title>
-          <h1>MODIUM Payload</h1>
-          <p><a href="mods_payload.zip">Download mods_payload.zip</a></p>
-          <p><a href="mods_manifest.sha1">mods_manifest.sha1</a></p>
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>MODIUM - Payload</title>
+          <style>
+            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;max-width:800px;margin:40px auto;padding:0 16px;color:#e5e7eb;background:#0b0f14}
+            a{color:#93c5fd} code{background:#111827;padding:2px 6px;border-radius:6px}
+            .card{background:#0d1320;border:1px solid #1f2937;border-radius:14px;padding:20px}
+          </style>
+          <h1>MODIUM – mods_payload.zip</h1>
+          <div class="card">
+            <p>Téléchargez le pack de mods :</p>
+            <p><a href="./mods_payload.zip" download>➡️ Télécharger <code>mods_payload.zip</code></a></p>
+            <p>SHA1 : <a href="./mods_payload.zip.sha1">mods_payload.zip.sha1</a><br>
+               SHA256 : <a href="./mods_payload.zip.sha256">mods_payload.zip.sha256</a></p>
+          </div>
+          <p style="margin-top:24px">URL directe à mettre dans <code>MODIUM_CONFIG.json → updates.mods_payload_url</code> :<br>
+          <code>https://yuumaboyz.github.io/modium-payload/mods_payload.zip</code></p>
+          </html>
           HTML
 
-      - name: Upload artifact to Pages
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: public
 
   deploy:
-    runs-on: ubuntu-latest
-    needs: build
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
